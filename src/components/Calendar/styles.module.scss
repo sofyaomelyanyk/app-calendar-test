@@ -1,0 +1,21 @@
+
+
+.fc {
+  height: 100%;
+  width: 100%;
+}
+
+form {
+  display: flex;
+  flex-direction: column; /* Расположение полей ввода в столбик */
+  gap: 10px; /* Пробел между полями ввода */
+  margin-top: 20px; /* Отступ сверху */
+}
+
+input {
+  padding: 8px; /* Отступ внутри полей ввода */
+}
+
+button {
+  padding: 8px;
+}
