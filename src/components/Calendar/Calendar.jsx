@@ -1,43 +1,135 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction"; // Для возможности клика по ячейкам
+import interactionPlugin from "@fullcalendar/interaction";
 import s from "./styles.module.scss";
+import { selectEvents } from "../../store/selectors/eventSelectors";
+import { useSelector } from "react-redux";
+import moment from "moment";
+import EventEditModal from "../EventEditModal/EventEditModal";
+import { nanoid } from "nanoid";
+import { DEFAULT_BG_COLOR } from "../constants/constants";
 
 const Calendar = () => {
-  const [events, setEvents] = useState([
-    { title: "Event 1", date: "2023-10-01" },
-    { title: "Event 2", date: "2023-10-10" },
-  ]);
-  const [eventTitle, setEventTitle] = useState("");
-  const [selectedDate, setSelectedDate] = useState(null);
+  const events = useSelector(selectEvents);
+  const [isCreateEvent, setIsCreateEvent] = useState(true);
+  const [isOpenModal, setIsOpenModal] = useState(false);
+  const [eventData, setEventData] = useState({
+    id: nanoid(),
+    title: "",
+    date: null,
+    time: null,
+    start: null,
+    notes: "",
+    color: DEFAULT_BG_COLOR,
+  });
 
-  const handleDateClick = (arg) => {
-    setSelectedDate(arg.dateStr); // Устанавливаем выбранную дату
-    const title = prompt("Введите название события (макс. 30 символов):");
-    if (title && title.length > 0 && title.length <= 30) {
-      setEvents([...events, { title, date: arg.dateStr }]);
-    } else {
-      alert("Название события должно быть от 1 до 30 символов.");
-    }
+  const handleDateClick = useCallback((arg) => {
+    setIsOpenModal(true);
+    setIsCreateEvent(true);
+    setEventData((prev) => ({
+      ...prev,
+      // start: arg.date, // Установка start на выбранную дату
+    }));
+  }, []);
+
+  const handleEventClick = useCallback((info) => {
+    setIsOpenModal(true);
+    setIsCreateEvent(false);
+    const {
+      title,
+      extendedProps: { notes, time },
+    } = info.event;
+
+    console.log("here", info.event);
+
+    const eventDate = info.event.start ? moment(info.event.start) : null;
+    const eventTime = time ? moment(time, "HH:mm:ss") : null;
+
+    const findEvent = events.findIndex((event) => event.id === info.event.id);
+
+    setEventData({
+      id: info.event.id,
+      title,
+      date: eventDate,
+      time: eventTime,
+      notes,
+      color: events[findEvent].color,
+      start: info.event.start,
+    });
+  }, []);
+
+  const renderEventContent = (eventInfo) => {
+    const time = moment(eventInfo.event.extendedProps.time, "HH:mm:ss").format(
+      "HH:mm"
+    );
+    return (
+      <div
+        style={{
+          padding: "0 5px",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          overflow: "hidden",
+          whiteSpace: "nowrap",
+          textOverflow: "ellipsis",
+        }}
+      >
+        <div
+          style={{
+            width: "10px",
+            height: "10px",
+            borderRadius: "50%",
+            backgroundColor: `${eventInfo.backgroundColor}`,
+            marginRight: "5px",
+            flexShrink: 0,
+          }}
+        />
+        <span
+          style={{
+            marginRight: "auto",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {time} - <strong>{eventInfo.event.title}</strong>
+        </span>
+      </div>
+    );
   };
 
   return (
-    <div className={s.calendarContainer}>
-      <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        headerToolbar={{
-          left: "prev,next today",
-          center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay",
-        }}
-        events={events}
-        dateClick={handleDateClick} // Обработчик клика по ячейке
-        editable={true} // Включаем возможность редактирования событий
-      />
-    </div>
+    <>
+      <div className={s.calendarContainer}>
+        <FullCalendar
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          headerToolbar={{
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay",
+          }}
+          events={events.map((event) => ({
+            ...event,
+            start: moment(event.date + " " + event.time).toISOString(), // Установка start для каждого события
+          }))}
+          eventClick={handleEventClick}
+          dateClick={handleDateClick}
+          editable={true}
+          eventContent={renderEventContent}
+        />
+      </div>
+      {isOpenModal && (
+        <EventEditModal
+          isOpenModal={isOpenModal}
+          setIsOpenModal={setIsOpenModal}
+          eventData={eventData}
+          setEventData={setEventData}
+          isCreateEvent={isCreateEvent}
+        />
+      )}
+    </>
   );
 };
 
